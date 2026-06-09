@@ -1,0 +1,9 @@
+[plugin]
+name = "thothterm-plugin-time"
+version = "0.1.0"
+author = "Mohamed Mounir"
+description = "Shows current time in the status bar on each command"
+entry = "thothterm_plugin_time.wasm"
+api_version = "1.0"
+hooks = ["on_command_complete", "on_startup"]
+permissions = ["write_output"]

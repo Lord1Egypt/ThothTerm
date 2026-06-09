@@ -1,0 +1,20 @@
+[package]
+name = "thothterm-ai"
+version = "0.1.0"
+edition = "2021"
+description = "AI assistant integration for ThothTerm (Ollama + OpenAI + Claude)"
+license = "MIT"
+
+[dependencies]
+thothterm-config = { path = "../thothterm-config" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+reqwest = { version = "0.12", features = ["json", "stream"] }
+thiserror = "1"
+tracing = "0.1"
+futures = "0.3"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["full", "test-util"] }
+mockito = "1"

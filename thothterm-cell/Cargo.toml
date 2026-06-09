@@ -1,0 +1,32 @@
+[package]
+authors = ["Wez Furlong"]
+name = "thothterm-cell"
+version = "0.1.0"
+edition = "2024"
+repository = "https://github.com/wezterm/wezterm"
+description = "Model a Cell in a Terminal display"
+license = "MIT"
+documentation = "https://docs.rs/thothterm-cell"
+keywords = ["terminal", "cell"]
+
+[dependencies]
+finl_unicode.workspace = true
+image = {workspace=true, optional=true}
+log = {workspace = true, optional=true}
+ordered-float = {workspace = true, optional=true}
+sha2 = {workspace=true, optional=true}
+serde = {workspace=true, optional=true}
+thiserror = {workspace=true, optional=true}
+thothterm-blob-leases = {workspace = true, optional=true}
+thothterm-char-props.workspace = true
+thothterm-color-types.workspace = true
+thothterm-escape-parser.workspace = true
+thothterm-dynamic.workspace = true
+
+[features]
+std = ["serde/std", "thothterm-char-props/std", "thothterm-color-types/std", "thothterm-escape-parser/std", "thothterm-dynamic/std", "finl_unicode/std"]
+use_serde = ["dep:serde", "thothterm-color-types/use_serde"]
+use_image = ["dep:image", "dep:thothterm-blob-leases", "dep:log", "dep:ordered-float", "dep:sha2", "dep:thiserror"]
+
+[dev-dependencies]
+

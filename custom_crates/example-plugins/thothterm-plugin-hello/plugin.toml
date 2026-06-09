@@ -1,0 +1,9 @@
+[plugin]
+name = "thothterm-plugin-hello"
+version = "0.1.0"
+author = "Mohamed Mounir"
+description = "Hello World — example ThothTerm plugin"
+entry = "thothterm_plugin_hello.wasm"
+api_version = "1.0"
+hooks = ["on_startup"]
+permissions = ["write_output"]

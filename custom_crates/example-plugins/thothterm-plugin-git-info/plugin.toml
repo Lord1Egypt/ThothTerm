@@ -1,0 +1,9 @@
+[plugin]
+name = "thothterm-plugin-git-info"
+version = "0.1.0"
+author = "Mohamed Mounir"
+description = "Shows current git branch in the status bar"
+entry = "thothterm_plugin_git_info.wasm"
+api_version = "1.0"
+hooks = ["on_command_complete"]
+permissions = ["read_cwd", "exec_subprocess"]

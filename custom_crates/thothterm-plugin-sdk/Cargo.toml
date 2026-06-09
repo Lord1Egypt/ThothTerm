@@ -1,0 +1,12 @@
+[package]
+name = "thothterm-plugin-sdk"
+version = "0.1.0"
+edition = "2021"
+description = "SDK for writing ThothTerm plugins in Rust (compiles to WASM)"
+license = "MIT"
+
+# This crate is meant to be compiled to wasm32-wasi by plugin authors.
+# It has no dependencies that require std I/O — only the WASM host API.
+
+[lib]
+crate-type = ["cdylib", "rlib"]

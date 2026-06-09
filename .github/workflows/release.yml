@@ -1,0 +1,341 @@
+name: Release ThothTerm
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  # ── Linux ──────────────────────────────────────────────────────────────────
+  release-linux:
+    name: Linux Release
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt update && sudo apt install -y \
+            build-essential cmake pkg-config \
+            libssl-dev \
+            libx11-dev libx11-xcb-dev \
+            libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev \
+            libxcb-icccm4-dev libxcb-keysyms1-dev libxcb-util-dev \
+            libxcb-image0-dev libxcb-randr0-dev libxcb-ewmh-dev \
+            libxkbcommon-dev libxkbcommon-x11-dev \
+            libfontconfig1-dev libfreetype6-dev \
+            libharfbuzz-dev libssh2-1-dev libzstd-dev \
+            libwayland-dev \
+            fuse libfuse2 \
+            python3
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build release binaries
+        run: |
+          cargo build --release --bin thothterm
+          cargo build --release --bin thothterm-gui
+
+      - name: Build AppImage
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          mkdir -p AppDir/usr/bin AppDir/usr/share/applications AppDir/usr/share/icons/hicolor/256x256/apps
+
+          cp target/release/thothterm AppDir/usr/bin/
+          cp target/release/thothterm-gui AppDir/usr/bin/
+          cp thothterm_assets/icon_256x256.png AppDir/usr/share/icons/hicolor/256x256/apps/thothterm.png
+          cp thothterm_assets/icon_256x256.png AppDir/thothterm.png
+
+          cat > AppDir/thothterm.desktop << 'EOF'
+          [Desktop Entry]
+          Name=ThothTerm
+          Comment=GPU-accelerated terminal emulator
+          Exec=thothterm-gui
+          Icon=thothterm
+          Type=Application
+          Categories=System;TerminalEmulator;
+          EOF
+
+          cat > AppDir/AppRun << 'EOF'
+          #!/bin/bash
+          APPDIR="$(dirname "$(readlink -f "$0")")"
+          exec "$APPDIR/usr/bin/thothterm-gui" "$@"
+          EOF
+          chmod +x AppDir/AppRun
+
+          wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool-x86_64.AppImage
+          ARCH=x86_64 ./appimagetool-x86_64.AppImage AppDir ThothTerm-${VERSION}-x86_64.AppImage || \
+            tar czf ThothTerm-${VERSION}-linux-x86_64.tar.gz -C target/release thothterm thothterm-gui
+
+      - name: Create Linux Portable tar.gz
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          PORTABLE_DIR="ThothTerm-${VERSION}-linux-portable"
+          mkdir -p "${PORTABLE_DIR}/config" "${PORTABLE_DIR}/plugins" "${PORTABLE_DIR}/data"
+          cp target/release/thothterm target/release/thothterm-gui "${PORTABLE_DIR}/"
+          touch "${PORTABLE_DIR}/.portable"
+          cat > "${PORTABLE_DIR}/config/thothterm.toml" << 'TOML'
+# ThothTerm Portable Configuration
+# All data (plugins, wallets, logs) is stored in this folder.
+
+[general]
+default_shell = "bash"
+
+[appearance]
+font_size = 13.0
+theme = "catppuccin-mocha"
+
+[ai]
+enabled = true
+provider = "ollama"
+model = "llama3"
+base_url = "http://localhost:11434"
+TOML
+          tar czf "ThothTerm-${VERSION}-linux-portable.tar.gz" "${PORTABLE_DIR}"
+
+      - name: Upload Linux artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-linux
+          path: |
+            ThothTerm-*.AppImage
+            ThothTerm-*-linux-*.tar.gz
+
+  # ── Windows ────────────────────────────────────────────────────────────────
+  release-windows:
+    name: Windows Release
+    runs-on: windows-latest
+    env:
+      WGPU_BACKEND: dx12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build release binaries
+        run: |
+          cargo build --release --bin thothterm
+          cargo build --release --bin thothterm-gui
+
+      - name: Create ZIP and Portable ZIP
+        shell: pwsh
+        run: |
+          $VERSION = $env:GITHUB_REF_NAME -replace '^v', ''
+
+          # Standard ZIP (installer supplement)
+          Compress-Archive -Path target/release/thothterm.exe, target/release/thothterm-gui.exe `
+            -DestinationPath "ThothTerm-${VERSION}-windows-x86_64.zip"
+
+          # Portable ZIP — everything in one folder, .portable marker activates portable mode
+          $portableDir = "ThothTerm-${VERSION}-portable"
+          New-Item -ItemType Directory -Path $portableDir, "$portableDir\config", "$portableDir\plugins", "$portableDir\data" -Force | Out-Null
+          Copy-Item target/release/thothterm.exe, target/release/thothterm-gui.exe -Destination $portableDir
+          # .portable marker — tells ThothTerm to use the executable's directory
+          New-Item -ItemType File -Path "$portableDir\.portable" -Force | Out-Null
+          # Default config template so users know what to edit
+          @"
+# ThothTerm Portable Configuration
+# Edit this file to customize your portable ThothTerm.
+# All data (plugins, wallets, logs) is stored in this folder.
+
+[general]
+default_shell = "powershell"
+
+[appearance]
+font_size = 13.0
+theme = "catppuccin-mocha"
+
+[ai]
+enabled = true
+provider = "ollama"
+model = "llama3"
+base_url = "http://localhost:11434"
+"@ | Out-File -FilePath "$portableDir\config\thothterm.toml" -Encoding UTF8
+
+          Compress-Archive -Path $portableDir -DestinationPath "ThothTerm-${VERSION}-windows-portable.zip"
+
+      - name: Install WiX Toolset (MSI)
+        shell: pwsh
+        run: |
+          dotnet tool install --global wix
+
+      - name: Create MSI installer
+        shell: pwsh
+        run: |
+          $VERSION = $env:GITHUB_REF_NAME -replace '^v', ''
+          # Build WiX MSI using inline WXS
+          $wxs = @"
+          <?xml version="1.0" encoding="UTF-8"?>
+          <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+            <Package Name="ThothTerm" Version="$VERSION.0" Manufacturer="Mohamed Mounir (Lord1Egypt)"
+                     UpgradeCode="a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                     InstallerVersion="500" Compressed="yes">
+              <MajorUpgrade DowngradeErrorMessage="A newer version is already installed." />
+              <MediaTemplate EmbedCab="yes" />
+              <Feature Id="ProductFeature" Title="ThothTerm" Level="1">
+                <ComponentGroupRef Id="ProductComponents" />
+              </Feature>
+              <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+                <Component>
+                  <File Source="target\release\thothterm.exe" />
+                </Component>
+                <Component>
+                  <File Source="target\release\thothterm-gui.exe" KeyPath="yes">
+                    <Shortcut Id="StartMenuShortcut" Directory="ProgramMenuFolder"
+                              Name="ThothTerm" Advertise="yes" />
+                    <Shortcut Id="DesktopShortcut" Directory="DesktopFolder"
+                              Name="ThothTerm" Advertise="yes" />
+                  </File>
+                </Component>
+              </ComponentGroup>
+              <StandardDirectory Id="ProgramFilesFolder">
+                <Directory Id="INSTALLFOLDER" Name="ThothTerm" />
+              </StandardDirectory>
+              <StandardDirectory Id="ProgramMenuFolder" />
+              <StandardDirectory Id="DesktopFolder" />
+            </Package>
+          </Wix>
+          "@
+          $wxs | Out-File -FilePath thothterm.wxs -Encoding UTF8
+          wix build thothterm.wxs -o "ThothTerm-$VERSION-windows-x86_64.msi" || `
+            Write-Host "MSI build failed, skipping (ZIP still available)"
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-windows
+          path: |
+            ThothTerm-*-windows-*.zip
+            ThothTerm-*-windows-*.msi
+
+  # ── macOS ──────────────────────────────────────────────────────────────────
+  release-macos:
+    name: macOS Release
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build universal binary
+        run: |
+          cargo build --release --target aarch64-apple-darwin --bin thothterm
+          cargo build --release --target aarch64-apple-darwin --bin thothterm-gui
+          cargo build --release --target x86_64-apple-darwin --bin thothterm
+          cargo build --release --target x86_64-apple-darwin --bin thothterm-gui
+
+          lipo -create \
+            target/aarch64-apple-darwin/release/thothterm \
+            target/x86_64-apple-darwin/release/thothterm \
+            -output thothterm-universal
+          lipo -create \
+            target/aarch64-apple-darwin/release/thothterm-gui \
+            target/x86_64-apple-darwin/release/thothterm-gui \
+            -output thothterm-gui-universal
+
+      - name: Build .app bundle
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          APP="ThothTerm.app"
+          mkdir -p "${APP}/Contents/MacOS"
+          mkdir -p "${APP}/Contents/Resources"
+
+          cp assets/macos/ThothTerm.app/Contents/Info.plist "${APP}/Contents/"
+          cp thothterm-universal "${APP}/Contents/MacOS/thothterm"
+          cp thothterm-gui-universal "${APP}/Contents/MacOS/thothterm-gui"
+
+          # Convert PNG to ICNS
+          mkdir -p /tmp/thothterm.iconset
+          for size in 16 32 128 256 512; do
+            cp thothterm_assets/icon_${size}x${size}.png /tmp/thothterm.iconset/icon_${size}x${size}.png
+            cp "thothterm_assets/icon_${size}x${size}@2x.png" /tmp/thothterm.iconset/icon_${size}x${size}@2x.png 2>/dev/null || true
+          done
+          iconutil -c icns /tmp/thothterm.iconset -o "${APP}/Contents/Resources/thothterm.icns"
+
+          chmod +x "${APP}/Contents/MacOS/thothterm" "${APP}/Contents/MacOS/thothterm-gui"
+          tar czf "ThothTerm-${VERSION}-macos-universal.tar.gz" "${APP}"
+
+      - name: Create DMG
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          APP="ThothTerm.app"
+          DMG="ThothTerm-${VERSION}-macos-universal.dmg"
+
+          # Create a temporary DMG source folder
+          mkdir -p dmg_src
+          cp -R "${APP}" dmg_src/
+          ln -s /Applications dmg_src/Applications
+
+          hdiutil create \
+            -volname "ThothTerm ${VERSION}" \
+            -srcfolder dmg_src \
+            -ov \
+            -format UDZO \
+            "${DMG}"
+
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-macos
+          path: |
+            ThothTerm-*-macos-*.tar.gz
+            ThothTerm-*-macos-*.dmg
+
+  # ── GitHub Release ─────────────────────────────────────────────────────────
+  publish-release:
+    name: Publish GitHub Release
+    needs: [release-linux, release-windows, release-macos]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+          path: dist/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ThothTerm ${{ github.ref_name }}
+          body: |
+            ## 𓆣 ThothTerm ${{ github.ref_name }}
+
+            GPU-accelerated terminal emulator — AI-native, Web3-native, WASM-plugin-extensible.
+
+            ### Downloads
+            | Platform | Installer | Portable (no install) |
+            |----------|-----------|----------------------|
+            | Linux x86_64 | AppImage | `ThothTerm-*-linux-portable.tar.gz` |
+            | Windows x86_64 | MSI installer | `ThothTerm-*-windows-portable.zip` |
+            | macOS Universal | DMG | `ThothTerm-*-macos-universal.tar.gz` |
+
+            **Portable mode**: Extract the portable archive anywhere, run from that folder. All config, plugins, and data stay in the same folder — no installation, no admin rights needed.
+
+            ### What's new
+            See [PROGRESS.md](https://github.com/Lord1Egypt/ThothTerm/blob/main/PROGRESS.md) for the full feature list.
+
+            ### Keyboard shortcuts
+            | Action | Keys |
+            |--------|------|
+            | Settings | Ctrl+, |
+            | Plugin Manager | Ctrl+Shift+P |
+            | AI Assistant | Ctrl+Shift+A |
+            | Web3 Status | Ctrl+Shift+W |
+            | Debug Overlay | Ctrl+Shift+L |
+          files: dist/**
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}

@@ -1,0 +1,28 @@
+[package]
+name = "thothterm-web3"
+version = "0.1.0"
+edition = "2021"
+description = "Web3/Ethereum integration for ThothTerm"
+license = "MIT"
+
+[dependencies]
+thothterm-config = { path = "../thothterm-config" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+reqwest = { version = "0.12", features = ["json"] }
+thiserror = "1"
+tracing = "0.1"
+tiny-keccak = { version = "2", features = ["keccak"] }
+# alloy for Ethereum interaction (lightweight subset)
+alloy-primitives = { version = "0.8", optional = true }
+
+[features]
+default = []
+# Enable full Ethereum support (adds alloy-primitives dependency)
+ethereum = ["alloy-primitives"]
+
+[dev-dependencies]
+tokio = { version = "1", features = ["full"] }
+mockito = "1"
+tempfile = "3"
