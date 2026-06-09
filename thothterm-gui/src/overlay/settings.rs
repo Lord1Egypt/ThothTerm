@@ -118,7 +118,7 @@ fn render(term: &mut TermWizTerminal, state: &SettingsState) -> anyhow::Result<(
         changes.push(Change::Text("\r\n".to_string()));
         changes.push(Change::Attribute(AttributeChange::Intensity(Intensity::Bold)));
         changes.push(Change::Attribute(AttributeChange::Foreground(
-            AnsiColor::Cyan.into(),
+            AnsiColor::Aqua.into(),
         )));
         changes.push(Change::Text(format!("  {}\r\n", section_name)));
         changes.push(Change::Attribute(AttributeChange::Intensity(Intensity::Normal)));

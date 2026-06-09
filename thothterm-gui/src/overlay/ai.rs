@@ -96,14 +96,21 @@ pub fn show_ai_overlay(mut term: TermWizTerminal) -> anyhow::Result<()> {
     term.set_raw_mode()?;
     render_conversation(&mut term, &ai_history, &status)?;
 
-    let mut line_editor = LineEditor::new(&mut term);
-    line_editor.set_prompt("Ask: ");
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()?;
 
     loop {
         status.clear();
         render_conversation(&mut term, &ai_history, &status)?;
 
-        match line_editor.read_line(&mut ai_history.host) {
+        let input = {
+            let mut editor = LineEditor::new(&mut term);
+            editor.set_prompt("Ask: ");
+            editor.read_line(&mut ai_history.host)
+        };
+
+        match input {
             Ok(Some(line)) if !line.trim().is_empty() => {
                 let prompt_text = line.trim().to_string();
 
@@ -124,10 +131,6 @@ pub fn show_ai_overlay(mut term: TermWizTerminal) -> anyhow::Result<()> {
                     },
                     request_type: RequestType::FreeForm,
                 };
-
-                let rt = tokio::runtime::Builder::new_current_thread()
-                    .enable_all()
-                    .build()?;
 
                 let _guard = InferGuard::start();
                 let response = rt.block_on(ai_client.ask(request));
@@ -207,12 +210,16 @@ pub fn show_ai_error_overlay(mut term: TermWizTerminal, exit_code: i32) -> anyho
     };
     ai_history.entries.push((initial_prompt, response_text));
 
-    let mut line_editor = LineEditor::new(&mut term);
-    line_editor.set_prompt("Follow-up (Enter to close): ");
-
     loop {
         render_conversation(&mut term, &ai_history, "")?;
-        match line_editor.read_line(&mut ai_history.host) {
+
+        let input = {
+            let mut editor = LineEditor::new(&mut term);
+            editor.set_prompt("Follow-up (Enter to close): ");
+            editor.read_line(&mut ai_history.host)
+        };
+
+        match input {
             Ok(Some(line)) if !line.trim().is_empty() => {
                 let prompt_text = line.trim().to_string();
 
@@ -233,11 +240,8 @@ pub fn show_ai_error_overlay(mut term: TermWizTerminal, exit_code: i32) -> anyho
                     request_type: RequestType::FreeForm,
                 };
 
-                let rt2 = tokio::runtime::Builder::new_current_thread()
-                    .enable_all()
-                    .build()?;
                 let _guard2 = InferGuard::start();
-                match rt2.block_on(ai_client.ask(followup)) {
+                match rt.block_on(ai_client.ask(followup)) {
                     Ok(resp) => ai_history.entries.push((prompt_text, resp.text)),
                     Err(e) => ai_history.entries.push((prompt_text, format!("Error: {}", e))),
                 }

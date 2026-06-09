@@ -216,10 +216,55 @@ impl AiClient {
         system: &str,
         model: &str,
     ) -> AiResult<AiResponse> {
-        // Claude API uses the same OpenAI-compatible format in many deployments.
-        // For the native Anthropic API, we'd use a different endpoint.
-        // Using OpenAI-compatible for now.
-        self.ask_openai(prompt, system, model).await
+        let base = if self.config.base_url.is_empty() {
+            "https://api.anthropic.com"
+        } else {
+            &self.config.base_url
+        };
+        let url = format!("{}/v1/messages", base);
+
+        let body = AnthropicRequest {
+            model: model.to_string(),
+            max_tokens: 512,
+            system: system.to_string(),
+            messages: vec![AnthropicMessage {
+                role: "user".into(),
+                content: prompt.to_string(),
+            }],
+        };
+
+        let resp = self
+            .http
+            .post(&url)
+            .header("x-api-key", &self.config.api_key)
+            .header("anthropic-version", "2023-06-01")
+            .header("content-type", "application/json")
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| AiError::ConnectionFailed { url: url.clone(), source: e })?;
+
+        if !resp.status().is_success() {
+            let status = resp.status().as_u16();
+            let body_text = resp.text().await.unwrap_or_default();
+            return Err(AiError::ProviderError { status, body: body_text });
+        }
+
+        let parsed: AnthropicResponse = resp.json().await?;
+        let text = parsed
+            .content
+            .into_iter()
+            .find(|c| c.content_type == "text")
+            .and_then(|c| c.text)
+            .filter(|s| !s.is_empty())
+            .ok_or(AiError::EmptyResponse)?;
+
+        Ok(AiResponse {
+            suggested_command: extract_command(&text),
+            text,
+            model: model.to_string(),
+            tokens_used: parsed.usage.map(|u| u.input_tokens + u.output_tokens),
+        })
     }
 }
 

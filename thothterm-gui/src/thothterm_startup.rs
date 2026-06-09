@@ -66,21 +66,24 @@ fn start_gas_tracker() {
     };
 
     std::thread::spawn(move || {
+        let rt = match tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+        {
+            Ok(rt) => rt,
+            Err(e) => {
+                log::error!("Gas tracker: failed to build tokio runtime: {}", e);
+                return;
+            }
+        };
         loop {
             let client = thothterm_web3::Web3Client::new(&rpc_url);
-            let rt = tokio::runtime::Builder::new_current_thread()
-                .enable_all()
-                .build();
-
-            if let Ok(rt) = rt {
-                if let Ok(gas) = rt.block_on(client.gas_info()) {
-                    if let Ok(mut cache) = crate::overlay::web3::GAS_CACHE.lock() {
-                        *cache = Some(gas.display_label());
-                    }
-                    log::debug!("Gas tracker: {}", gas.display_label());
+            if let Ok(gas) = rt.block_on(client.gas_info()) {
+                if let Ok(mut cache) = crate::overlay::web3::GAS_CACHE.lock() {
+                    *cache = Some(gas.display_label());
                 }
+                log::debug!("Gas tracker: {}", gas.display_label());
             }
-
             std::thread::sleep(std::time::Duration::from_secs(60));
         }
     });

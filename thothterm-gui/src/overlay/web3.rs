@@ -98,6 +98,14 @@ fn fetch_web3_state(rpc_url: &str) -> Web3State {
     }
 }
 
+fn push_row(changes: &mut Vec<Change>, label: &str, value: &str, color: ColorAttribute) {
+    changes.push(Change::Attribute(AttributeChange::Foreground(AnsiColor::Aqua.into())));
+    changes.push(Change::Text(format!("  {:<22}", label)));
+    changes.push(Change::Attribute(AttributeChange::Foreground(color)));
+    changes.push(Change::Text(format!("{}\r\n", value)));
+    changes.push(Change::Attribute(AttributeChange::Foreground(ColorAttribute::Default)));
+}
+
 fn render(term: &mut TermWizTerminal, state: &Web3State) -> anyhow::Result<()> {
     let mut changes = vec![];
     changes.push(Change::ClearScreen(ColorAttribute::Default));
@@ -111,37 +119,29 @@ fn render(term: &mut TermWizTerminal, state: &Web3State) -> anyhow::Result<()> {
     changes.push(Change::Text("\r\n".to_string()));
     changes.push(Change::Text("─".repeat(header.len()) + "\r\n\r\n"));
 
-    let mut row = |label: &str, value: &str, color: ColorAttribute| {
-        changes.push(Change::Attribute(AttributeChange::Foreground(AnsiColor::Aqua.into())));
-        changes.push(Change::Text(format!("  {:<22}", label)));
-        changes.push(Change::Attribute(AttributeChange::Foreground(color)));
-        changes.push(Change::Text(format!("{}\r\n", value)));
-        changes.push(Change::Attribute(AttributeChange::Foreground(ColorAttribute::Default)));
-    };
-
-    row("RPC URL:", &state.rpc_url, ColorAttribute::Default);
+    push_row(&mut changes, "RPC URL:", &state.rpc_url, ColorAttribute::Default);
 
     if state.loading {
         changes.push(Change::Attribute(AttributeChange::Foreground(AnsiColor::Grey.into())));
         changes.push(Change::Text("\r\n  Fetching Web3 data...\r\n".to_string()));
         changes.push(Change::Attribute(AttributeChange::Foreground(ColorAttribute::Default)));
     } else if let Some(err) = &state.error {
-        row("Error:", err, AnsiColor::Red.into());
+        push_row(&mut changes, "Error:", err, AnsiColor::Red.into());
     } else {
-        row("Chain ID:", state.chain_id.as_deref().unwrap_or("unknown"), AnsiColor::Green.into());
-        row("Latest Block:", state.block.as_deref().unwrap_or("unknown"), ColorAttribute::Default);
-        row("Gas Price:", state.gas.as_deref().unwrap_or("unavailable"), AnsiColor::Yellow.into());
+        push_row(&mut changes, "Chain ID:", state.chain_id.as_deref().unwrap_or("unknown"), AnsiColor::Green.into());
+        push_row(&mut changes, "Latest Block:", state.block.as_deref().unwrap_or("unknown"), ColorAttribute::Default);
+        push_row(&mut changes, "Gas Price:", state.gas.as_deref().unwrap_or("unavailable"), AnsiColor::Yellow.into());
         if let Some(proj) = &state.project {
-            row("Project:", proj, AnsiColor::Aqua.into());
+            push_row(&mut changes, "Project:", proj, AnsiColor::Aqua.into());
         }
         if let Some(wallet) = &state.wallet {
-            row("Active Wallet:", wallet, AnsiColor::Fuchsia.into());
+            push_row(&mut changes, "Active Wallet:", wallet, AnsiColor::Fuchsia.into());
         }
         if !state.ens_input.is_empty() {
             changes.push(Change::Text("\r\n".to_string()));
-            row("ENS Query:", &state.ens_input, ColorAttribute::Default);
+            push_row(&mut changes, "ENS Query:", &state.ens_input, ColorAttribute::Default);
             if let Some(result) = &state.ens_result {
-                row("  → Address:", result, AnsiColor::Green.into());
+                push_row(&mut changes, "  \u{2192} Address:", result, AnsiColor::Green.into());
             }
         }
     }
@@ -166,6 +166,9 @@ pub fn show_web3_overlay(mut term: TermWizTerminal) -> anyhow::Result<()> {
     render(&mut term, &state)?;
 
     let mut host = NopLineEditorHost::default();
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()?;
 
     loop {
         match term.poll_input(None) {
@@ -179,10 +182,12 @@ pub fn show_web3_overlay(mut term: TermWizTerminal) -> anyhow::Result<()> {
                         render(&mut term, &state)?;
                     }
                     (KeyCode::Char('e'), _) | (KeyCode::Char('E'), _) => {
-                        // ENS lookup via line editor
-                        let mut editor = LineEditor::new(&mut term);
-                        editor.set_prompt("ENS name (e.g. vitalik.eth): ");
-                        if let Ok(Some(name)) = editor.read_line(&mut host) {
+                        let ens_name = {
+                            let mut editor = LineEditor::new(&mut term);
+                            editor.set_prompt("ENS name (e.g. vitalik.eth): ");
+                            editor.read_line(&mut host).ok().flatten()
+                        };
+                        if let Some(name) = ens_name {
                             let name = name.trim().to_string();
                             if !name.is_empty() {
                                 state.ens_input = name.clone();
@@ -190,9 +195,6 @@ pub fn show_web3_overlay(mut term: TermWizTerminal) -> anyhow::Result<()> {
                                 render(&mut term, &state)?;
 
                                 let client = Web3Client::new(&rpc_url);
-                                let rt = tokio::runtime::Builder::new_current_thread()
-                                    .enable_all()
-                                    .build()?;
                                 state.ens_result = Some(match rt.block_on(client.resolve_ens(&name)) {
                                     Ok(addr) => addr,
                                     Err(e) => format!("Error: {}", e),

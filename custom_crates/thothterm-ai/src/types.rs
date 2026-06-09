@@ -109,3 +109,38 @@ pub(crate) struct OpenAiChoice {
 pub(crate) struct OpenAiUsage {
     pub total_tokens: usize,
 }
+
+// ── Anthropic Messages API types ──────────────────────────────────────────────
+
+#[derive(Debug, Serialize)]
+pub(crate) struct AnthropicRequest {
+    pub model: String,
+    pub max_tokens: u32,
+    pub system: String,
+    pub messages: Vec<AnthropicMessage>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub(crate) struct AnthropicMessage {
+    pub role: String,
+    pub content: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct AnthropicResponse {
+    pub content: Vec<AnthropicContent>,
+    pub usage: Option<AnthropicUsage>,
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct AnthropicContent {
+    #[serde(rename = "type")]
+    pub content_type: String,
+    pub text: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct AnthropicUsage {
+    pub input_tokens: usize,
+    pub output_tokens: usize,
+}
