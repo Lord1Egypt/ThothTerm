@@ -15,7 +15,7 @@ fn init_config() {
             log::info!(
                 "ThothTerm config loaded: font_size={}, scheme={}",
                 cfg.appearance.font_size,
-                cfg.appearance.color_scheme.as_deref().unwrap_or("default")
+                &cfg.appearance.theme
             );
         }
         Err(thothterm_config::ConfigError::NotFound { .. }) => {

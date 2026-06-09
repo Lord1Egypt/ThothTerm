@@ -31,12 +31,12 @@ impl Drop for InferGuard {
 
 struct AiHistory {
     entries: Vec<(String, String)>,
-    history: BasicHistory,
+    host: NopLineEditorHost,
 }
 
 impl AiHistory {
     fn new() -> Self {
-        Self { entries: Vec::new(), history: BasicHistory::default() }
+        Self { entries: Vec::new(), host: NopLineEditorHost::default() }
     }
 }
 
@@ -54,7 +54,7 @@ fn render_conversation(term: &mut TermWizTerminal, ai: &AiHistory, status: &str)
     changes.push(Change::Text("─".repeat(header.len()) + "\r\n\r\n"));
 
     for (prompt, response) in &ai.entries {
-        changes.push(Change::Attribute(AttributeChange::Foreground(AnsiColor::Cyan.into())));
+        changes.push(Change::Attribute(AttributeChange::Foreground(AnsiColor::Aqua.into())));
         changes.push(Change::Text(format!("You: {}\r\n", prompt)));
         changes.push(Change::Attribute(AttributeChange::Foreground(AnsiColor::White.into())));
         for line in response.lines() {
@@ -85,6 +85,7 @@ pub fn show_ai_overlay(mut term: TermWizTerminal) -> anyhow::Result<()> {
             base_url: "http://localhost:11434".into(),
             api_key: String::new(),
             privacy_mode: false,
+            ..Default::default()
         });
 
     let ai_client = AiClient::new(ai_config);
@@ -102,10 +103,9 @@ pub fn show_ai_overlay(mut term: TermWizTerminal) -> anyhow::Result<()> {
         status.clear();
         render_conversation(&mut term, &ai_history, &status)?;
 
-        match line_editor.read_line(&mut ai_history.history) {
+        match line_editor.read_line(&mut ai_history.host) {
             Ok(Some(line)) if !line.trim().is_empty() => {
                 let prompt_text = line.trim().to_string();
-                ai_history.history.add(&prompt_text);
 
                 status = "Thinking...".into();
                 render_conversation(&mut term, &ai_history, &status)?;
@@ -162,6 +162,7 @@ pub fn show_ai_error_overlay(mut term: TermWizTerminal, exit_code: i32) -> anyho
             base_url: "http://localhost:11434".into(),
             api_key: String::new(),
             privacy_mode: false,
+            ..Default::default()
         });
 
     if !ai_config.enabled || ai_config.privacy_mode {
@@ -211,10 +212,9 @@ pub fn show_ai_error_overlay(mut term: TermWizTerminal, exit_code: i32) -> anyho
 
     loop {
         render_conversation(&mut term, &ai_history, "")?;
-        match line_editor.read_line(&mut ai_history.history) {
+        match line_editor.read_line(&mut ai_history.host) {
             Ok(Some(line)) if !line.trim().is_empty() => {
                 let prompt_text = line.trim().to_string();
-                ai_history.history.add(&prompt_text);
 
                 render_conversation(&mut term, &ai_history, "Thinking...")?;
 

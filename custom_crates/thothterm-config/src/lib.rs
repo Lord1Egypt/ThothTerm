@@ -3,7 +3,7 @@ pub mod run_mode;
 
 pub use run_mode::RunMode;
 
-use error::{ConfigError, ConfigResult};
+pub use error::{ConfigError, ConfigResult};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use tracing::{debug, info};

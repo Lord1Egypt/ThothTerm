@@ -112,7 +112,7 @@ fn render(term: &mut TermWizTerminal, state: &Web3State) -> anyhow::Result<()> {
     changes.push(Change::Text("─".repeat(header.len()) + "\r\n\r\n"));
 
     let mut row = |label: &str, value: &str, color: ColorAttribute| {
-        changes.push(Change::Attribute(AttributeChange::Foreground(AnsiColor::Cyan.into())));
+        changes.push(Change::Attribute(AttributeChange::Foreground(AnsiColor::Aqua.into())));
         changes.push(Change::Text(format!("  {:<22}", label)));
         changes.push(Change::Attribute(AttributeChange::Foreground(color)));
         changes.push(Change::Text(format!("{}\r\n", value)));
@@ -132,10 +132,10 @@ fn render(term: &mut TermWizTerminal, state: &Web3State) -> anyhow::Result<()> {
         row("Latest Block:", state.block.as_deref().unwrap_or("unknown"), ColorAttribute::Default);
         row("Gas Price:", state.gas.as_deref().unwrap_or("unavailable"), AnsiColor::Yellow.into());
         if let Some(proj) = &state.project {
-            row("Project:", proj, AnsiColor::Cyan.into());
+            row("Project:", proj, AnsiColor::Aqua.into());
         }
         if let Some(wallet) = &state.wallet {
-            row("Active Wallet:", wallet, AnsiColor::Magenta.into());
+            row("Active Wallet:", wallet, AnsiColor::Fuchsia.into());
         }
         if !state.ens_input.is_empty() {
             changes.push(Change::Text("\r\n".to_string()));
@@ -165,7 +165,7 @@ pub fn show_web3_overlay(mut term: TermWizTerminal) -> anyhow::Result<()> {
     state = fetch_web3_state(&rpc_url);
     render(&mut term, &state)?;
 
-    let mut history = BasicHistory::default();
+    let mut host = NopLineEditorHost::default();
 
     loop {
         match term.poll_input(None) {
@@ -182,7 +182,7 @@ pub fn show_web3_overlay(mut term: TermWizTerminal) -> anyhow::Result<()> {
                         // ENS lookup via line editor
                         let mut editor = LineEditor::new(&mut term);
                         editor.set_prompt("ENS name (e.g. vitalik.eth): ");
-                        if let Ok(Some(name)) = editor.read_line(&mut history) {
+                        if let Ok(Some(name)) = editor.read_line(&mut host) {
                             let name = name.trim().to_string();
                             if !name.is_empty() {
                                 state.ens_input = name.clone();

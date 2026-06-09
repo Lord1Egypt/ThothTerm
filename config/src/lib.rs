@@ -72,7 +72,7 @@ lazy_static! {
     pub static ref DATA_DIR: PathBuf = compute_data_dir().unwrap();
     pub static ref CACHE_DIR: PathBuf = compute_cache_dir().unwrap();
     static ref CONFIG: Configuration = Configuration::new();
-    static ref CONFIG_FILE_OVERRIDE: Mutex<Option<PathBuf>> = Mutex::new(None);
+    pub static ref CONFIG_FILE_OVERRIDE: Mutex<Option<PathBuf>> = Mutex::new(None);
     static ref CONFIG_SKIP: AtomicBool = AtomicBool::new(false);
     static ref CONFIG_OVERRIDES: Mutex<Vec<(String, String)>> = Mutex::new(vec![]);
     static ref SHOW_ERROR: Mutex<Option<ErrorCallback>> =

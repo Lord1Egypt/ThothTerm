@@ -110,6 +110,7 @@ thothterm-config = { path = "../custom_crates/thothterm-config" }
 thothterm-ai = { path = "../custom_crates/thothterm-ai" }
 thothterm-web3 = { path = "../custom_crates/thothterm-web3" }
 thothterm-plugins = { path = "../custom_crates/thothterm-plugins" }
+tokio = { version = "1", features = ["rt", "rt-multi-thread"] }
 
 [target.'cfg(windows)'.dependencies]
 shared_library.workspace = true

@@ -127,7 +127,7 @@ fn render(term: &mut TermWizTerminal, state: &PluginsState) -> anyhow::Result<()
 
     if let Some(msg) = &state.message {
         changes.push(Change::Text("\r\n".to_string()));
-        changes.push(Change::Attribute(AttributeChange::Foreground(AnsiColor::Cyan.into())));
+        changes.push(Change::Attribute(AttributeChange::Foreground(AnsiColor::Aqua.into())));
         changes.push(Change::Text(format!("  {}\r\n", msg)));
         changes.push(Change::Attribute(AttributeChange::Foreground(ColorAttribute::Default)));
     }
