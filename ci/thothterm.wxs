@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="ThothTerm" Version="VERSION_PLACEHOLDER.0"
+           Manufacturer="Mohamed Mounir (Lord1Egypt)"
+           UpgradeCode="a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+           InstallerVersion="500" Compressed="yes">
+    <MajorUpgrade DowngradeErrorMessage="A newer version is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+    <Feature Id="ProductFeature" Title="ThothTerm" Level="1">
+      <ComponentGroupRef Id="ProductComponents" />
+    </Feature>
+    <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+      <Component>
+        <File Source="target\release\thothterm.exe" />
+      </Component>
+      <Component>
+        <File Source="target\release\thothterm-gui.exe" KeyPath="yes">
+          <Shortcut Id="StartMenuShortcut" Directory="ProgramMenuFolder"
+                    Name="ThothTerm" Advertise="yes" />
+          <Shortcut Id="DesktopShortcut" Directory="DesktopFolder"
+                    Name="ThothTerm" Advertise="yes" />
+        </File>
+      </Component>
+    </ComponentGroup>
+    <StandardDirectory Id="ProgramFilesFolder">
+      <Directory Id="INSTALLFOLDER" Name="ThothTerm" />
+    </StandardDirectory>
+    <StandardDirectory Id="ProgramMenuFolder" />
+    <StandardDirectory Id="DesktopFolder" />
+  </Package>
+</Wix>

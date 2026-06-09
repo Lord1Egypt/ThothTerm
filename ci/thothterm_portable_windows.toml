@@ -1,0 +1,16 @@
+# ThothTerm Portable Configuration
+# Edit this file to customize your portable ThothTerm.
+# All data (plugins, wallets, logs) is stored in this folder.
+
+[general]
+default_shell = "powershell"
+
+[appearance]
+font_size = 13.0
+theme = "catppuccin-mocha"
+
+[ai]
+enabled = true
+provider = "ollama"
+model = "llama3"
+base_url = "http://localhost:11434"
