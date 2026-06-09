@@ -100,13 +100,13 @@ jobs:
           Compress-Archive -Path $portableDir -DestinationPath "ThothTerm-${VERSION}-windows-portable.zip"
 
       - name: Install WiX and build MSI
+        continue-on-error: true
         shell: pwsh
         run: |
           $VERSION = $env:GITHUB_REF_NAME -replace '^v', ''
-          dotnet tool install --global wix
+          dotnet tool install --global wix --version 4.0.5
           (Get-Content ci\thothterm.wxs) -replace 'VERSION_PLACEHOLDER', $Version | Set-Content thothterm.wxs
           wix build thothterm.wxs -o "ThothTerm-${VERSION}-windows-x86_64.msi"
-          if ($LASTEXITCODE -ne 0) { Write-Host "MSI build failed, ZIP still available" }
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
